@@ -1,0 +1,214 @@
+<!--
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  DASHBOARD – Comercios Minoristas · Abril 2026                  ║
+  ║  README                                                          ║
+  ║  ─────────────────────────────────────────────────────────────  ║
+  ║  Requiere un servidor HTTP local para fetch() del CSV.           ║
+  ║                                                                  ║
+  ║  Cómo ejecutar:                                                  ║
+  ║    cd dashboard-minoristas                                       ║
+  ║    python -m http.server 8080                                    ║
+  ║    → abrir http://localhost:8080 en el navegador                 ║
+  ║                                                                  ║
+  ║  Node.js alternativa:                                            ║
+  ║    npx serve .                                                   ║
+  ║                                                                  ║
+  ║  Archivos:                                                       ║
+  ║    index.html  – estructura y markup                             ║
+  ║    styles.css  – estilos (tema claro, Poppins)                   ║
+  ║    app.js      – lógica: parsing, filtros, KPIs, gráficos, tabla ║
+  ║    data.csv    – datos fuente (Abril 2026, minoristas)           ║
+  ╚══════════════════════════════════════════════════════════════════╝
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard DTE · Minoristas · Abril 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- Loading / error states -->
+  <div id="loading" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Cargando datos…</p>
+  </div>
+  <div id="error-msg" class="error-banner" style="display:none"></div>
+
+  <!-- ═══ APP ════════════════════════════════════════ -->
+  <div id="app" style="display:none">
+
+    <!-- ── Header ── -->
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="header-text">
+          <span class="period-badge">Abril 2026</span>
+          <h1>Dashboard DTE · <span>Comercios Minoristas</span></h1>
+          <p class="header-sub">Análisis de documentos tributarios electrónicos emitidos y recibidos</p>
+        </div>
+        <div class="header-meta" id="row-count">— filas visibles</div>
+      </div>
+    </header>
+
+    <main class="main-content">
+
+      <!-- ── Filters ── -->
+      <section class="filters-section card" aria-label="Filtros">
+        <div class="filters-row">
+
+          <!-- Búsqueda por texto -->
+          <div class="filter-group">
+            <label for="f-search">Buscar rubro</label>
+            <input id="f-search" type="text" placeholder="Ej: Almacenes…" autocomplete="off" />
+          </div>
+
+          <!-- Multi-select macro_rubro -->
+          <div class="filter-group">
+            <label>Macro rubro</label>
+            <div class="multiselect" id="rubro-ms">
+              <button class="ms-toggle" id="ms-toggle" type="button" aria-haspopup="listbox">
+                Todos los rubros ▾
+              </button>
+              <div class="ms-dropdown" id="ms-dropdown" style="display:none" role="listbox">
+                <label class="ms-option ms-all">
+                  <input type="checkbox" id="ms-todos" checked /> Todos
+                </label>
+                <!-- Options injected by app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Dirección -->
+          <div class="filter-group">
+            <label for="f-direccion">Dirección</label>
+            <select id="f-direccion">
+              <option value="">Todas</option>
+              <option value="emitido">Emitido</option>
+              <option value="recibido">Recibido</option>
+            </select>
+          </div>
+
+          <!-- Tipo documento -->
+          <div class="filter-group">
+            <label for="f-tipo">Tipo documento</label>
+            <select id="f-tipo">
+              <option value="">Todos</option>
+              <option value="any">Any (resumen)</option>
+              <option value="boleta">Boleta</option>
+              <option value="factura">Factura</option>
+              <option value="factura_compra">Factura Compra</option>
+            </select>
+          </div>
+
+          <!-- Rango comercios_total_macro -->
+          <div class="filter-group filter-range">
+            <label>Total comercios (rango)</label>
+            <div class="range-inputs">
+              <input id="f-min-com" type="number" placeholder="Mín" min="0" />
+              <span>–</span>
+              <input id="f-max-com" type="number" placeholder="Máx" min="0" />
+            </div>
+          </div>
+
+          <!-- Reset -->
+          <div class="filter-group filter-actions">
+            <button id="btn-reset" class="btn-secondary">↺ Reset filtros</button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── KPIs ── -->
+      <section class="section-block" aria-label="KPIs">
+        <h2 class="section-title">Resumen</h2>
+        <div id="kpis-container" class="kpis-grid">
+          <!-- Injected by app.js -->
+        </div>
+      </section>
+
+      <!-- ── Charts ── -->
+      <section class="section-block" aria-label="Gráficos">
+        <h2 class="section-title">Visualizaciones</h2>
+
+        <div class="charts-top">
+          <!-- Chart 1: Comercios con documento por rubro -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <h3>Comercios con Documento</h3>
+              <p class="chart-sub">Por macro rubro (suma filas visibles)</p>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart1"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Stacked cantidad docs por tipo (emitido) -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <h3>Cantidad Documentos por Tipo</h3>
+              <p class="chart-sub">Emitidos · Boleta / Factura / FC (ignora filtro tipo)</p>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart2"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart 3: Emitido vs recibido monto total -->
+        <div class="card chart-card chart-full">
+          <div class="chart-header">
+            <h3>Monto Total: Emitido vs Recibido</h3>
+            <p class="chart-sub">Filas tipo = "any" · CLP · responde a filtro de rubro</p>
+          </div>
+          <div class="chart-wrap chart-wrap-wide">
+            <canvas id="chart3"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Solo Boleta Audit ── -->
+      <section class="section-block" aria-label="Auditoría Solo Boleta">
+        <h2 class="section-title">Auditoría · Solo Boleta</h2>
+        <p class="section-desc">
+          Comercios que solo emiten boleta (sin factura emitida) y su cobertura con facturas recibidas.
+          Datos únicos por macro rubro.
+        </p>
+        <div id="boleta-container">
+          <!-- Injected by app.js -->
+        </div>
+      </section>
+
+      <!-- ── Table ── -->
+      <section class="section-block" aria-label="Tabla principal">
+        <div class="table-toolbar">
+          <h2 class="section-title">Tabla de Datos</h2>
+          <button id="btn-export" class="btn-primary">⬇ Exportar CSV</button>
+        </div>
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table id="main-table">
+              <thead id="table-head"></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+          <div id="pagination" class="pagination"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="site-footer">
+      Datos fuente: <strong>data.csv</strong> · Período Abril 2026 · SII Chile
+    </footer>
+
+  </div><!-- /#app -->
+
+  <script src="app.js"></script>
+</body>
+</html>
